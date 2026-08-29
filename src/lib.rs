@@ -226,6 +226,12 @@ pub enum AccessType {
 
     // Written as a buffer during acceleration structure building (e.g. a staging buffer)
     AccelerationStructureBufferWrite,
+
+    /// Read as an input buffer during acceleration structure building
+    AccelerationStructureBuildInputRead,
+
+    /// Read and written as scratch storage during acceleration structure building
+    AccelerationStructureBuildScratchReadWrite,
 }
 
 /// Defines a handful of layout options for images.
@@ -883,6 +889,17 @@ pub(crate) fn get_access_info(access_type: AccessType) -> AccessInfo {
             access_mask: vk::AccessFlags::TRANSFER_WRITE,
             image_layout: vk::ImageLayout::UNDEFINED,
         },
+        AccessType::AccelerationStructureBuildScratchReadWrite => AccessInfo {
+            stage_mask: vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR,
+            access_mask: vk::AccessFlags::ACCELERATION_STRUCTURE_READ_KHR
+                | vk::AccessFlags::ACCELERATION_STRUCTURE_WRITE_KHR,
+            image_layout: vk::ImageLayout::UNDEFINED,
+        },
+        AccessType::AccelerationStructureBuildInputRead => AccessInfo {
+            stage_mask: vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR,
+            access_mask: vk::AccessFlags::SHADER_READ,
+            image_layout: vk::ImageLayout::UNDEFINED,
+        },
     }
 }
 
@@ -909,5 +926,8 @@ pub(crate) fn is_write_access(access_type: AccessType) -> bool {
             | AccessType::HostWrite
             | AccessType::ColorAttachmentReadWrite
             | AccessType::General
+            | AccessType::AccelerationStructureBuildWrite
+            | AccessType::AccelerationStructureBufferWrite
+            | AccessType::AccelerationStructureBuildScratchReadWrite
     )
 }

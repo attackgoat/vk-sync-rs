@@ -1,5 +1,10 @@
 # Changes
 
+## 0.6.0 (Unreleased)
+
+* Add acceleration structure build input and scratch access types.
+* Correct write synchronization for acceleration structure builds and serialization.
+
 ## 0.5.0 (2025-01-25)
 
 * Update to `ash` `0.38.0`.
