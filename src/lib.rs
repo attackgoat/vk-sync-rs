@@ -235,6 +235,27 @@ pub enum AccessType {
 
     /// Read and written as scratch storage during acceleration structure building
     AccelerationStructureBuildScratchReadWrite,
+
+    /// Read as an input buffer during micromap building
+    MicromapBuildInputRead,
+
+    /// Read and written as scratch storage during micromap building
+    MicromapBuildScratchReadWrite,
+
+    /// Written as a micromap during micromap building
+    MicromapBuildWrite,
+
+    /// Read as a micromap during micromap building
+    MicromapBuildRead,
+
+    /// Read as a micromap during acceleration structure building
+    AccelerationStructureBuildMicromapRead,
+
+    /// Read as a serialization or deserialization buffer during micromap building
+    MicromapBuildBufferRead,
+
+    /// Written as a serialization or deserialization buffer during micromap building
+    MicromapBuildBufferWrite,
 }
 
 /// Defines a handful of layout options for images.
@@ -537,6 +558,63 @@ pub(crate) struct AccessInfo {
     pub(crate) stage_mask: vk::PipelineStageFlags,
     pub(crate) access_mask: vk::AccessFlags,
     pub(crate) image_layout: vk::ImageLayout,
+}
+
+/// Synchronization2 access information for a resource usage.
+#[derive(Debug, Copy, Clone)]
+pub struct AccessInfo2 {
+    pub stage_mask: vk::PipelineStageFlags2,
+    pub access_mask: vk::AccessFlags2,
+    pub image_layout: vk::ImageLayout,
+}
+
+/// Returns synchronization2 access information for a resource usage.
+pub fn get_access_info2(access_type: AccessType) -> AccessInfo2 {
+    match access_type {
+        AccessType::MicromapBuildInputRead => AccessInfo2 {
+            stage_mask: vk::PipelineStageFlags2::MICROMAP_BUILD_EXT,
+            access_mask: vk::AccessFlags2::SHADER_READ,
+            image_layout: vk::ImageLayout::UNDEFINED,
+        },
+        AccessType::MicromapBuildScratchReadWrite => AccessInfo2 {
+            stage_mask: vk::PipelineStageFlags2::MICROMAP_BUILD_EXT,
+            access_mask: vk::AccessFlags2::MICROMAP_READ_EXT | vk::AccessFlags2::MICROMAP_WRITE_EXT,
+            image_layout: vk::ImageLayout::UNDEFINED,
+        },
+        AccessType::MicromapBuildWrite => AccessInfo2 {
+            stage_mask: vk::PipelineStageFlags2::MICROMAP_BUILD_EXT,
+            access_mask: vk::AccessFlags2::MICROMAP_WRITE_EXT,
+            image_layout: vk::ImageLayout::UNDEFINED,
+        },
+        AccessType::MicromapBuildRead => AccessInfo2 {
+            stage_mask: vk::PipelineStageFlags2::MICROMAP_BUILD_EXT,
+            access_mask: vk::AccessFlags2::MICROMAP_READ_EXT,
+            image_layout: vk::ImageLayout::UNDEFINED,
+        },
+        AccessType::MicromapBuildBufferRead => AccessInfo2 {
+            stage_mask: vk::PipelineStageFlags2::MICROMAP_BUILD_EXT,
+            access_mask: vk::AccessFlags2::TRANSFER_READ,
+            image_layout: vk::ImageLayout::UNDEFINED,
+        },
+        AccessType::MicromapBuildBufferWrite => AccessInfo2 {
+            stage_mask: vk::PipelineStageFlags2::MICROMAP_BUILD_EXT,
+            access_mask: vk::AccessFlags2::TRANSFER_WRITE,
+            image_layout: vk::ImageLayout::UNDEFINED,
+        },
+        AccessType::AccelerationStructureBuildMicromapRead => AccessInfo2 {
+            stage_mask: vk::PipelineStageFlags2::ACCELERATION_STRUCTURE_BUILD_KHR,
+            access_mask: vk::AccessFlags2::MICROMAP_READ_EXT,
+            image_layout: vk::ImageLayout::UNDEFINED,
+        },
+        _ => {
+            let info = get_access_info(access_type);
+            AccessInfo2 {
+                stage_mask: vk::PipelineStageFlags2::from_raw(info.stage_mask.as_raw().into()),
+                access_mask: vk::AccessFlags2::from_raw(info.access_mask.as_raw().into()),
+                image_layout: info.image_layout,
+            }
+        }
+    }
 }
 
 pub(crate) fn get_access_info(access_type: AccessType) -> AccessInfo {
@@ -908,6 +986,15 @@ pub(crate) fn get_access_info(access_type: AccessType) -> AccessInfo {
             access_mask: vk::AccessFlags::SHADER_READ,
             image_layout: vk::ImageLayout::UNDEFINED,
         },
+        AccessType::MicromapBuildInputRead
+        | AccessType::MicromapBuildScratchReadWrite
+        | AccessType::MicromapBuildWrite
+        | AccessType::MicromapBuildRead
+        | AccessType::AccelerationStructureBuildMicromapRead
+        | AccessType::MicromapBuildBufferRead
+        | AccessType::MicromapBuildBufferWrite => {
+            panic!("micromap accesses require synchronization2")
+        }
     }
 }
 
@@ -937,5 +1024,43 @@ pub(crate) fn is_write_access(access_type: AccessType) -> bool {
             | AccessType::AccelerationStructureBuildWrite
             | AccessType::AccelerationStructureBufferWrite
             | AccessType::AccelerationStructureBuildScratchReadWrite
+            | AccessType::MicromapBuildScratchReadWrite
+            | AccessType::MicromapBuildWrite
+            | AccessType::MicromapBuildBufferWrite
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn micromap_sync2_accesses_are_precise() {
+        for (access, expected) in [
+            (
+                AccessType::MicromapBuildInputRead,
+                vk::AccessFlags2::SHADER_READ,
+            ),
+            (
+                AccessType::MicromapBuildBufferRead,
+                vk::AccessFlags2::TRANSFER_READ,
+            ),
+            (
+                AccessType::MicromapBuildBufferWrite,
+                vk::AccessFlags2::TRANSFER_WRITE,
+            ),
+            (
+                AccessType::MicromapBuildRead,
+                vk::AccessFlags2::MICROMAP_READ_EXT,
+            ),
+            (
+                AccessType::MicromapBuildWrite,
+                vk::AccessFlags2::MICROMAP_WRITE_EXT,
+            ),
+        ] {
+            let info = get_access_info2(access);
+            assert_eq!(info.stage_mask, vk::PipelineStageFlags2::MICROMAP_BUILD_EXT);
+            assert_eq!(info.access_mask, expected);
+        }
+    }
 }
