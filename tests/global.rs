@@ -196,6 +196,49 @@ fn compute_write_acceleration_structure_build_input_read() {
 }
 
 #[test]
+fn compute_write_acceleration_structure_build_indirect_read() {
+    let indirect = vk_sync::AccessType::AccelerationStructureBuildIndirectRead;
+    let indirect_accesses = [indirect];
+    let (src, dst, barrier) = vk_sync::get_memory_barrier(&vk_sync::GlobalBarrier {
+        previous_accesses: &[vk_sync::AccessType::ComputeShaderWrite],
+        next_accesses: &indirect_accesses,
+    });
+    assert_eq!(src, vk::PipelineStageFlags::COMPUTE_SHADER);
+    assert_eq!(
+        dst,
+        vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR
+    );
+    assert_eq!(barrier.src_access_mask, vk::AccessFlags::SHADER_WRITE);
+    assert_eq!(
+        barrier.dst_access_mask,
+        vk::AccessFlags::INDIRECT_COMMAND_READ
+    );
+
+    let info = vk_sync::get_access_info2(indirect);
+    assert_eq!(
+        info.stage_mask,
+        vk::PipelineStageFlags2::ACCELERATION_STRUCTURE_BUILD_KHR
+    );
+    assert_eq!(info.access_mask, vk::AccessFlags2::INDIRECT_COMMAND_READ);
+    assert_eq!(info.image_layout, vk::ImageLayout::UNDEFINED);
+    let draw = vk_sync::get_access_info2(vk_sync::AccessType::IndirectBuffer);
+    assert_eq!(draw.stage_mask, vk::PipelineStageFlags2::DRAW_INDIRECT);
+    assert_eq!(draw.access_mask, vk::AccessFlags2::INDIRECT_COMMAND_READ);
+    let general = vk_sync::get_access_info2(vk_sync::AccessType::General);
+    assert_eq!(general.stage_mask, vk::PipelineStageFlags2::ALL_COMMANDS);
+    assert_eq!(
+        general.access_mask,
+        vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE
+    );
+
+    let (_, _, read_then_write) = vk_sync::get_memory_barrier(&vk_sync::GlobalBarrier {
+        previous_accesses: &indirect_accesses,
+        next_accesses: &[vk_sync::AccessType::ComputeShaderWrite],
+    });
+    assert!(read_then_write.src_access_mask.is_empty());
+}
+
+#[test]
 fn acceleration_structure_serialization_buffer_write() {
     let accesses = [vk_sync::AccessType::AccelerationStructureBufferWrite];
     let global_barrier = vk_sync::GlobalBarrier {

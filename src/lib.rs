@@ -227,6 +227,9 @@ pub enum AccessType {
     // Written as a buffer during acceleration structure building (e.g. a staging buffer)
     AccelerationStructureBufferWrite,
 
+    /// Read as an indirect build-range buffer during acceleration structure building
+    AccelerationStructureBuildIndirectRead,
+
     /// Read as an input buffer during acceleration structure building
     AccelerationStructureBuildInputRead,
 
@@ -893,6 +896,11 @@ pub(crate) fn get_access_info(access_type: AccessType) -> AccessInfo {
             stage_mask: vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR,
             access_mask: vk::AccessFlags::ACCELERATION_STRUCTURE_READ_KHR
                 | vk::AccessFlags::ACCELERATION_STRUCTURE_WRITE_KHR,
+            image_layout: vk::ImageLayout::UNDEFINED,
+        },
+        AccessType::AccelerationStructureBuildIndirectRead => AccessInfo {
+            stage_mask: vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR,
+            access_mask: vk::AccessFlags::INDIRECT_COMMAND_READ,
             image_layout: vk::ImageLayout::UNDEFINED,
         },
         AccessType::AccelerationStructureBuildInputRead => AccessInfo {
