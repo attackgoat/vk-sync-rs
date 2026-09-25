@@ -123,6 +123,9 @@ pub enum AccessType {
     /// Read as any other resource in a compute shader
     ComputeShaderReadOther,
 
+    /// Read as an acceleration structure in a compute shader (e.g. a ray query)
+    ComputeShaderReadAccelerationStructure,
+
     /// Read or written as any resource in a compute shader
     ComputeShaderReadWrite,
 
@@ -793,6 +796,11 @@ pub(crate) fn get_access_info(access_type: AccessType) -> AccessInfo {
             stage_mask: vk::PipelineStageFlags::COMPUTE_SHADER,
             access_mask: vk::AccessFlags::SHADER_READ,
             image_layout: vk::ImageLayout::GENERAL,
+        },
+        AccessType::ComputeShaderReadAccelerationStructure => AccessInfo {
+            stage_mask: vk::PipelineStageFlags::COMPUTE_SHADER,
+            access_mask: vk::AccessFlags::ACCELERATION_STRUCTURE_READ_KHR,
+            image_layout: vk::ImageLayout::UNDEFINED,
         },
         AccessType::AnyShaderReadUniformBuffer => AccessInfo {
             stage_mask: vk::PipelineStageFlags::ALL_COMMANDS,
