@@ -307,3 +307,35 @@ fn acceleration_structure_build_write_ray_tracing_read() {
         vk::AccessFlags::ACCELERATION_STRUCTURE_READ_KHR
     );
 }
+
+#[test]
+fn acceleration_structure_build_write_compute_query_read() {
+    let read = vk_sync::AccessType::ComputeShaderReadAccelerationStructure;
+    let reads = [read];
+    let (src_mask, dst_mask, barrier) = vk_sync::get_memory_barrier(&vk_sync::GlobalBarrier {
+        previous_accesses: &[vk_sync::AccessType::AccelerationStructureBuildWrite],
+        next_accesses: &reads,
+    });
+
+    assert_eq!(
+        src_mask,
+        vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR
+    );
+    assert_eq!(dst_mask, vk::PipelineStageFlags::COMPUTE_SHADER);
+    assert_eq!(
+        barrier.src_access_mask,
+        vk::AccessFlags::ACCELERATION_STRUCTURE_WRITE_KHR
+    );
+    assert_eq!(
+        barrier.dst_access_mask,
+        vk::AccessFlags::ACCELERATION_STRUCTURE_READ_KHR
+    );
+
+    let info = vk_sync::get_access_info2(read);
+    assert_eq!(info.stage_mask, vk::PipelineStageFlags2::COMPUTE_SHADER);
+    assert_eq!(
+        info.access_mask,
+        vk::AccessFlags2::ACCELERATION_STRUCTURE_READ_KHR
+    );
+    assert_eq!(info.image_layout, vk::ImageLayout::UNDEFINED);
+}
